@@ -10,7 +10,7 @@ OUT.parent.mkdir(parents=True, exist_ok=True)
 
 try: 
     print(f"Reading: {INP}")
-    data = pd.read_csv(INP)
+    data = pd.read_csv(INP, low_memory=False)
 except:
     print("Error reading file")
     raise SystemExit(1)
@@ -35,12 +35,12 @@ if 'CRASH_DATE' in data.columns:
 if 'CRASH_TIME' in data.columns:
     data['hour'] = pd.to_numeric(data['CRASH_TIME'].str.split(':').str[0], errors='coerce')
 
-# Standardize VEHICLE_MAKE column
+# Standardize VEHICLE_MAKE 
 if 'VEHICLE_MAKE' in data.columns:
     data['VEHICLE_MAKE'] = data['VEHICLE_MAKE'].astype(str).str.strip().str.upper()
 
 
-# Standardize VEHICLE_Model column to find models most involved later and other insights
+# Standardize VEHICLE_Model 
 if 'VEHICLE_MODEL' in data.columns:
     data['VEHICLE_MODEL'] = data['VEHICLE_MODEL'].astype(str).str.strip().str.upper()
 

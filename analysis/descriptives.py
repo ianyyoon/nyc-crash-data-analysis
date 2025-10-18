@@ -1,19 +1,21 @@
 from pathlib import Path
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 ROOT = Path(__file__).resolve().parents[1]          # project root
 INP  = ROOT / "data" / "cleaned" / "crashes_clean.csv"  #input output file paths 
 OUT  = ROOT / "outcomes" / "descriptives"  
+FIGS = ROOT / "outcomes" / "figs"
 #OUT2  = ROOT / "outcomes" / "logitreg"  / "logitreg.csv"  for logit file
-OUT.parent.mkdir(parents=True, exist_ok=True)
+OUT.mkdir(parents=True, exist_ok=True)
+FIGS.mkdir(parents=True, exist_ok=True)
 #OUT2.parent.mkdir(parents=True, exist_ok=True)             for logit file
 
 
 MIN_CRASHES = 500 #minimum crashes per brand 
 
 def make_brand_norm(brand):
-
     brand_norm = brand.fillna("").astype(str).str.upper().str.strip() 
     brand_norm = brand_norm.str.partition("-")[0].str.strip()   #cuts at hyphen
 
@@ -26,15 +28,77 @@ def make_brand_norm(brand):
     brand_norm = brand_norm.replace(brands)
     return brand_norm
 
-cleandf = pd.read_csv(INP) 
+crashesdf = pd.read_csv(INP, low_memory=False) #readcsv
 
-cleandf["MAKE_NORM"] = make_brand_norm(cleandf["VEHICLE_MAKE"])
-cleandf["isford"]   = (cleandf["MAKE_NORM"] == "FORD").astype(int)
+#Normalize and starting insights
 
-len(cleandf)
-cleandf["fatal"].mean()
+crashesdf["MAKE_NORM"] = make_brand_norm(crashesdf["VEHICLE_MAKE"]) #normalize brands within df
+
+n_rows = len(crashesdf)
+avg_fatal = crashesdf["fatal"].mean() #avg fatal or not
+avg_injured = crashesdf["any_injury"].mean() #avg injured or not
 # save these in a text file
 
+with open(OUT / "insights.txt", "w") as insighttxt:
+    insighttxt.write(f"Number of rows: {n_rows}\n")
+    insighttxt.write(f"Average Fatality rate: {avg_fatal}\n")
+    insighttxt.write(f"Average Injury rate: {avg_injured}\n")
+
+
+#Ford vs non ford injury rate table 
+
+
+dfRateTab = crashesdf[["MAKE_NORM", "any_injury"]].copy()
+dfRateTab = dfRateTab[
+    (dfRateTab["MAKE_NORM"] != "") &
+    (dfRateTab["MAKE_NORM"] != "UNKNOWN") &
+    (dfRateTab["MAKE_NORM"] != "UNK")
+]         #no blanks and unknowns
+
+brandTab = (dfRateTab.groupby("MAKE_NORM", as_index=False).agg(crashes=("any_injury", "size"), injury_rate=("any_injury", "mean")))
+
+# keep only brands with enough rows, sort descending
+brandTab = brandTab[brandTab["crashes"] >= MIN_CRASHES]
+brandTab = brandTab.sort_values("crashes", ascending=False)
+
+brandTab.to_csv(OUT / "brandinjurytable.csv", index=False)
+
+#Bar charts for Weekdays/Hourly on crashes 
+
+#Crashes by hour 
+hrs = crashesdf["hour"]
+wks = crashesdf["weekday"]
+hour_counts = [0] * 24          # 0..23
+weekday_counts = [0] * 7        # 0..6 (Mon..Sun)
+
+#fill hours index
+for v in hrs:
+    if 0 <= v <= 23:
+        hour_counts[v] += 1
+
+#fill weekdays index
+for v in wks:
+    if 0 <= v <= 6:
+        weekday_counts[v] += 1
+
+#hours
+plt.bar(range(24), hour_counts)
+plt.xticks(range(24))
+plt.title("Crash counts by hour")
+plt.xlabel("Hour")
+plt.ylabel("Crash count")
+plt.savefig(FIGS / "counts_by_hour.png", dpi=200)
+plt.close()
+
+#weekdays
+labels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+plt.bar(range(7), weekday_counts)
+plt.xticks(range(7), labels)
+plt.title("Crash counts by weekday")
+plt.xlabel("Weekday")
+plt.ylabel("Crash count")
+plt.savefig(FIGS / "counts_by_weekday.png", dpi=200)
+plt.close()
 
 
 
@@ -42,42 +106,3 @@ cleandf["fatal"].mean()
 
 
 
-
-
-
-
-
-
-data['fatal'] = (data['NUMBER OF PERSONS KILLED'] > 0).astype(int)
-
-crosstab = pd.crosstab(data['is_ford'], data['fatal'], margins=True)
-print("Contingency Table: Ford Involvement vs Fatal Crash Outcome")
-print(crosstab)
-
-X = data[['is_ford']]
-X = sm.add_constant(X)
-y = data['fatal']
-
-logit_model = sm.Logit(y, X)
-result = logit_model.fit(disp=True)
-
-print("\nLogistic Regression Results:")
-print(result.summary())
-
-odds_ratio = np.exp(result.params['is_ford'])
-print("\nOdds Ratio for Ford Vehicle Involvement:", odds_ratio)
-
-data['predicted_prob'] = result.predict(X)
-
-plt.figure(figsize=(8, 5))
-plt.scatter(data['is_ford'], data['predicted_prob'], alpha=0.3, label="Predicted Probability")
-plt.xlabel('Ford Vehicle (0 = No, 1 = Yes)')
-plt.ylabel('Predicted Probability of Fatal Crash')
-plt.title('Predicted Fatal Crash Probability by Ford Vehicle Involvement')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-fatality_rate = data.groupby('is_ford')['fatal'].mean()
-print("\nFatality Rates by Ford Vehicle Involvement:")
-print(fatality_rate)

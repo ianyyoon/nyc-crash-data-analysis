@@ -1,0 +1,3 @@
+Number of rows: 89102
+Average Fatality rate: 0.0005611546317703306
+Average Injury rate: 0.18573096002334402
