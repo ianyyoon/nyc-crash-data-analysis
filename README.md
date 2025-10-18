@@ -1,2 +1,2 @@
-# automaker-crash-fatality-odds-nyc
-Causal study of fatality odds given a crash by automaker brand in NYC
+# nyc-crash-data-analysis
+Exploratory analysis of crash injury risk in NYC by brand
