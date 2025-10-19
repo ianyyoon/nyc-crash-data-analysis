@@ -28,8 +28,12 @@ def make_brand_norm(brand):
     brand_norm = brand_norm.replace(brands)
     return brand_norm
 
-crashesdf = pd.read_csv(INP, low_memory=False) #readcsv
-
+try: 
+    print(f"Reading: {INP}")
+    crashesdf = pd.read_csv(INP, low_memory=False)
+except:
+    print("Error reading file")
+    raise SystemExit(1)
 #Normalize and starting insights
 
 crashesdf["MAKE_NORM"] = make_brand_norm(crashesdf["VEHICLE_MAKE"]) #normalize brands within df
@@ -69,7 +73,7 @@ brandTab.to_csv(OUT / "brandinjurytable.csv", index=False)
 hrs = crashesdf["hour"]
 wks = crashesdf["weekday"]
 hour_counts = [0] * 24          # 0..23
-weekday_counts = [0] * 7        # 0..6 (Mon..Sun)
+weekday_counts = [0] * 7        # 0..6 
 
 #fill hours index
 for v in hrs:
@@ -100,8 +104,15 @@ plt.ylabel("Crash count")
 plt.savefig(FIGS / "counts_by_weekday.png", dpi=200)
 plt.close()
 
+#filter for crosstabb
+keep = crashesdf["VEHICLE_TYPE"].value_counts()
+keep = keep[keep >= 50].index      #50 incidents with name probably enough, 150 AND 500 took out alot
+tabdf  = crashesdf[crashesdf["VEHICLE_TYPE"].isin(keep)]
 
-
+#crosstab to show injury rates by vehicleclass
+classrates = pd.crosstab(tabdf["VEHICLE_TYPE"], tabdf["any_injury"], normalize="index")
+classrates.columns = ["no_injury_rate", "injury_rate"]
+classrates.to_csv(OUT / "injuryratescrosstab.csv", index=True)
 
 
 

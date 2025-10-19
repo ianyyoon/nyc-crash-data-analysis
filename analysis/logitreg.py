@@ -1,71 +1,74 @@
+from pathlib import Path
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import NearestNeighbors
-import statsmodels.api as sm
-import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf
 
-# Load the cleaned dataset.
-data = pd.read_csv("Motor_Vehicle_Collisions_Cleaned.csv")
+# paths
+ROOT = Path(__file__).resolve().parents[1]
+INP  = ROOT / "data" / "cleaned" / "crashes_clean.csv"
+OUT  = ROOT / "outcomes" / "logitreg"
+OUT.mkdir(parents = True, exist_ok = True)
 
-# Create the indicator for Ford vehicles.
-data['is_ford'] = data['VEHICLE_MAKE'].astype(str).str.lower().str.contains("ford").astype(int)
-# Create binary outcome: fatal crash if NUMBER OF PERSONS KILLED > 0.
-data['fatal'] = (data['NUMBER OF PERSONS KILLED'] > 0).astype(int)
+#make init for this and str upper in future maybe for reuse across files
+def make_brand_norm(brand):
+    brand_norm = brand.fillna("").astype(str).str.upper().str.strip() 
+    brand_norm = brand_norm.str.partition("-")[0].str.strip()   #cuts at hyphen
 
-# --- Estimating Propensity Scores ---
-# Define covariates for propensity score estimation.
-# Here we include VEHICLE_TYPE and VEHICLE_YEAR. You could add more covariates if they are available.
-# For categorical variables, create dummy variables.
-covariates = ['VEHICLE_TYPE', 'VEHICLE_YEAR']
-ps_data = data[covariates].copy()
-ps_data = pd.get_dummies(ps_data, drop_first=True)  # Encode categorical variables.
+    brands = {   
+        "TOYT":"TOYOTA","NISS":"NISSAN","HOND":"HONDA","HYUN":"HYUNDAI",
+        "CHEV":"CHEVROLET","LEXS":"LEXUS","INFI":"INFINITI","VOLK":"VOLKSWAGEN",
+        "DODG":"DODGE","MAZD":"MAZDA","SUBA":"SUBARU","CADI":"CADILLAC",
+        "LINC":"LINCOLN","BUIC":"BUICK","MERZ":"MERCEDES"
+    }
+    brand_norm = brand_norm.replace(brands)
+    return brand_norm
 
-# Fit logistic regression to estimate propensity scores.
-ps_model = LogisticRegression(solver='liblinear')
-ps_model.fit(ps_data, data['is_ford'])
-data['propensity_score'] = ps_model.predict_proba(ps_data)[:, 1]
+try: 
+    print(f"Reading: {INP}")
+    crashesdf = pd.read_csv(INP, low_memory = False)
+except:
+    print("Error reading file")
+    raise SystemExit(1)
 
-# --- Matching using Nearest Neighbors ---
-# Define the matching algorithm. We are matching Ford cases (treated) with non‑Ford cases (controls).
-# Set n_neighbors = 1 for one-to-one matching.
-treated = data[data['is_ford'] == 1]
-control = data[data['is_ford'] == 0]
 
-# Reshape the propensity scores for matching.
-propensity_treated = treated['propensity_score'].values.reshape(-1, 1)
-propensity_control = control['propensity_score'].values.reshape(-1, 1)
+crashesdf["MAKE_NORM"] = make_brand_norm(crashesdf["VEHICLE_MAKE"])
+crashesdf["weekend"] = crashesdf["weekday"].isin([5, 6]).astype(int) # 0-6
+crashesdf["hour"] = pd.to_numeric(crashesdf["hour"], errors = "coerce")
+crashesdf = crashesdf[crashesdf["hour"].between(0, 23)]
+crashesdf = crashesdf[
+    (crashesdf["MAKE_NORM"] != "") &
+    (crashesdf["MAKE_NORM"] != "UNKNOWN") &
+    (crashesdf["MAKE_NORM"] != "UNK")
+]  
+crashesdf = crashesdf.dropna(subset = ["any_injury", "hour", "MAKE_NORM"]).copy()
 
-# Use nearest neighbor to match each treated unit with a control.
-nn = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(propensity_control)
-distances, indices = nn.kneighbors(propensity_treated)
 
-# Get the index of matched controls.
-matched_control_indices = control.iloc[indices.flatten()].index
-matched_treated_indices = treated.index
+MIN_CRASHES = 500
+counts = crashesdf.groupby("MAKE_NORM").size() #count
+keep = counts[counts >= MIN_CRASHES].index        #more than min
+keptdata  = crashesdf[crashesdf['MAKE_NORM'].isin(keep)] #keep
 
-# Create a matched dataset.
-matched_data = pd.concat([data.loc[matched_treated_indices], data.loc[matched_control_indices]], axis=0)
+#logit regression
+logit = smf.logit('any_injury ~ C(MAKE_NORM, Treatment(reference="FORD")) + weekend + hour', data = keptdata).fit(disp = True)
 
-print("Matched dataset size:", matched_data.shape)
-print("Balance check (mean propensity scores):")
-print(matched_data.groupby('is_ford')['propensity_score'].mean())
+(OUT / "logit_summary.txt").write_text(logit.summary().as_text())
 
-# Re-run logistic regression on the matched data.
-X_matched = matched_data[['is_ford']]
-X_matched = sm.add_constant(X_matched)
-y_matched = matched_data['fatal']
-logit_matched = sm.Logit(y_matched, X_matched)
-result_matched = logit_matched.fit(disp=False)
-print("\nLogistic Regression Results on Matched Data:")
-print(result_matched.summary())
 
-# --- Visualization of Propensity Score Distribution ---
-plt.figure(figsize=(8, 5))
-plt.hist(treated['propensity_score'], bins=25, alpha=0.5, label="Ford Collisions")
-plt.hist(control['propensity_score'], bins=25, alpha=0.5, label="Non-Ford Collisions")
-plt.xlabel("Propensity Score")
-plt.ylabel("Frequency")
-plt.title("Distribution of Propensity Scores")
-plt.legend()
-plt.show()
+params = logit.params
+conf = logit.conf_int()
+brand_levels = sorted([b for b in keep if b != "FORD"])
+
+#odds ratios/confidence intervals df
+rows = []
+for b in brand_levels:  # all brands except "FORD"
+    key = f'C(MAKE_NORM, Treatment(reference="FORD"))[T.{b}]'
+    if key in params.index:
+        rows.append({
+            "brand": b,
+            "Odds Ratio": float(np.exp(params[key])),
+            "Lower CI": float(np.exp(conf.loc[key, 0])),
+            "Upper CI": float(np.exp(conf.loc[key, 1])),
+        })
+
+OR_table = pd.DataFrame(rows)
+OR_table.to_csv(OUT / "Confidence_OddsRatios.csv", index=False)
