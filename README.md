@@ -1,5 +1,6 @@
 # nyc-crash-data-analysis
 Exploratory analysis of crash injury risk in NYC by vehicle make vs. injury odds, and time-of-day patterns
+
 Main report available NYC_Crashes_Analysis_Report.pdf
 
 # Environment
@@ -8,17 +9,26 @@ Main report available NYC_Crashes_Analysis_Report.pdf
 
 # How to run:
 1.Install dependencies in requirements.txt (above)
+
 2.Run data_cleanup.py, descriptives.py, logitreg.py(data_cleanup first) in analysis/
+
 3.Results will be written out in data/cleaned/ and outcomes in descriptives, figs(bar charts), logitreg folders.
+
 4.My report writeup is available as NYC_Crashes_Analysis_Report in the parent repo folder
 
 # Outputs:
 data/cleaned/crashes_clean.csv
+
 outcomes/figs/counts_by_hour.png
+
 outcomes/figs/counts_by_weekday.png
+
 outcomes/descriptives/brandinjurytable.csv
+
 outcomes/descriptives/injuryratescrosstab.csv
+
 outcomes/logitreg/logit_summary.txt
+
 outcomes/logitreg/Confidence_OddsRatios.csv
 
 # Logit Model notes:
