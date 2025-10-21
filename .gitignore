@@ -1,0 +1,7 @@
+outcomes/**
+!outcomes/.gitkeep
+#all outcomes
+
+data/cleaned/**
+!data/cleaned/.gitkeep
+#cleaned data
