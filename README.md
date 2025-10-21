@@ -42,5 +42,6 @@ adding methods file for repeated cleaning functions, and standardizing them per 
 
 add significance flags to code when making odds table to avoid extra work on report next time
 
+sampling/distributions for descriptives?
 
 
