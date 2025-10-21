@@ -7,10 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]          # project root
 INP  = ROOT / "data" / "cleaned" / "crashes_clean.csv"  #input output file paths 
 OUT  = ROOT / "outcomes" / "descriptives"  
 FIGS = ROOT / "outcomes" / "figs"
-#OUT2  = ROOT / "outcomes" / "logitreg"  / "logitreg.csv"  for logit file
-OUT.mkdir(parents=True, exist_ok=True)
-FIGS.mkdir(parents=True, exist_ok=True)
-#OUT2.parent.mkdir(parents=True, exist_ok=True)             for logit file
+
+OUT.mkdir(parents = True, exist_ok = True)
+FIGS.mkdir(parents = True, exist_ok = True)
+
 
 
 MIN_CRASHES = 500 #minimum crashes per brand 
@@ -49,7 +49,7 @@ with open(OUT / "insights.txt", "w") as insighttxt:
     insighttxt.write(f"Average Injury rate: {avg_injured}\n")
 
 
-#Ford vs non ford injury rate table 
+#injury rate table 
 
 
 dfRateTab = crashesdf[["MAKE_NORM", "any_injury"]].copy()
@@ -59,13 +59,13 @@ dfRateTab = dfRateTab[
     (dfRateTab["MAKE_NORM"] != "UNK")
 ]         #no blanks and unknowns
 
-brandTab = (dfRateTab.groupby("MAKE_NORM", as_index=False).agg(crashes=("any_injury", "size"), injury_rate=("any_injury", "mean")))
+brandTab = (dfRateTab.groupby("MAKE_NORM", as_index = False).agg(crashes = ("any_injury", "size"), injury_rate = ("any_injury", "mean")))
 
 # keep only brands with enough rows, sort descending
 brandTab = brandTab[brandTab["crashes"] >= MIN_CRASHES]
-brandTab = brandTab.sort_values("crashes", ascending=False)
+brandTab = brandTab.sort_values("crashes", ascending = False)
 
-brandTab.to_csv(OUT / "brandinjurytable.csv", index=False)
+brandTab.to_csv(OUT / "brandinjurytable.csv", index = False)
 
 #Bar charts for Weekdays/Hourly on crashes 
 
@@ -91,7 +91,7 @@ plt.xticks(range(24))
 plt.title("Crash counts by hour")
 plt.xlabel("Hour")
 plt.ylabel("Crash count")
-plt.savefig(FIGS / "counts_by_hour.png", dpi=200)
+plt.savefig(FIGS / "counts_by_hour.png", dpi = 200)
 plt.close()
 
 #weekdays
@@ -101,7 +101,7 @@ plt.xticks(range(7), labels)
 plt.title("Crash counts by weekday")
 plt.xlabel("Weekday")
 plt.ylabel("Crash count")
-plt.savefig(FIGS / "counts_by_weekday.png", dpi=200)
+plt.savefig(FIGS / "counts_by_weekday.png", dpi = 200)
 plt.close()
 
 #filter for crosstabb
@@ -110,9 +110,9 @@ keep = keep[keep >= 50].index      #50 incidents with name probably enough, 150 
 tabdf  = crashesdf[crashesdf["VEHICLE_TYPE"].isin(keep)]
 
 #crosstab to show injury rates by vehicleclass
-classrates = pd.crosstab(tabdf["VEHICLE_TYPE"], tabdf["any_injury"], normalize="index")
+classrates = pd.crosstab(tabdf["VEHICLE_TYPE"], tabdf["any_injury"], normalize = "index")
 classrates.columns = ["no_injury_rate", "injury_rate"]
-classrates.to_csv(OUT / "injuryratescrosstab.csv", index=True)
+classrates.to_csv(OUT / "injuryratescrosstab.csv", index = True)
 
 
 

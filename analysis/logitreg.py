@@ -60,7 +60,7 @@ brand_levels = sorted([b for b in keep if b != "FORD"])
 
 #odds ratios/confidence intervals df
 rows = []
-for b in brand_levels:  # all brands except "FORD"
+for b in brand_levels:  
     key = f'C(MAKE_NORM, Treatment(reference="FORD"))[T.{b}]'
     if key in params.index:
         rows.append({
